@@ -57,28 +57,48 @@ const M: usize = 0x2c9277b5;
 // coprime to `bits` means the commulated rotation offset cycles through all bit positions before
 // repeating, being close to `bits/phi` means the sequence of commulated rotation offsets is
 // distributed evenly.
-//
-// Using a small value like FxHash's 5 bit rotation wouldn't work well with the strategy we use to
-// ensure that also the last added word gets properly scrambled (see write_usize and finish below).
 #[cfg(target_pointer_width = "64")]
 const R: u32 = 41;
 #[cfg(target_pointer_width = "32")]
 const R: u32 = 21;
 
+#[cfg(target_pointer_width = "64")]
+type WideInt = u128;
+#[cfg(target_pointer_width = "32")]
+type WideInt = u64;
+
+const USIZE_BITS: u32 = 0usize.count_zeros();
+
 impl Hasher for ZwoHasher {
     #[inline]
     fn write_usize(&mut self, i: usize) {
         // Every other write is implemented via this function. It differs from FxHash in the used
-        // constants and in that the rotation is done at the end and not at the beginning. This,
-        // together with the extra multiplication in finish, ensures much better scrambling of the
-        // last added word.
-        self.state = ((self.state ^ i).wrapping_mul(M)).rotate_right(R);
+        // constants and in that we xor the input word at the end. We can do this as we do
+        // additional mixing in finish, which FxHash doesn't do. This way if the first write_usize
+        // is inlined, the wrapping_mul and rotate_right get const evaluated.
+        self.state = self.state.wrapping_mul(M).rotate_right(R) ^ i;
     }
 
     #[inline]
     fn finish(&self) -> u64 {
-        // Extra multiplication to better scramble the last added word.
-        (self.state.wrapping_mul(M)) as u64
+        // Our state update (in write_usize) doesn't mix the bits very much. The wrapping_mul only
+        // allows lower bits to affect higher bits, which is somewhat mitigated by the rotate_right,
+        // but that still requires multiple updates to really mix the bits.
+        //
+        // Additionally the last added word isn't mixed at all.
+        //
+        // We can work around both these problems by performing a slightly more expensive but much
+        // better mixing here at the end. To do that we don't use wrapping_mul but instead perform a
+        // wide multiplication and subtract the high from the low resutling word to get the final
+        // hash. This allows any bit of the final state to affect any bit of the output hash.
+        //
+        // For hashes of short values, e.g. of single ints, this is slightly more expensive than
+        // FxHash, even with more const evaluation for the first write_usize. For longer values this
+        // is quickly amortized.
+        //
+        // See the test at the end of this file of what mixing properties this guarantees.
+        let wide = (self.state as WideInt) * (M as WideInt);
+        (wide as usize).wrapping_sub((wide >> USIZE_BITS) as usize) as u64
     }
 
     #[inline]
@@ -199,5 +219,51 @@ impl Hasher for ZwoHasher {
     #[inline]
     fn write_isize(&mut self, i: isize) {
         self.write_usize(i as usize);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{prelude::v1::*, println};
+
+    fn hash_usize(value: usize) -> usize {
+        let mut hasher = ZwoHasher::default();
+        hasher.write_usize(value);
+        hasher.finish() as usize
+    }
+
+    /// Make sure that for every consecutive 8 bits of the input, over all possible values of those
+    /// 8 bits (with the others set to zero), and every consecutive 1 bits of the output, there are
+    /// almost no collisions.
+    ///
+    /// This is a desirable property, especially for consecutive low and high output bits, as these
+    /// are used as indices or as filter in hashtables. E.g. the stdlibs hashbrown hash tables takes
+    /// a variable number of lower bits as index and use the upper 8 bits to pre-filter entries with
+    /// colliding indices.
+    #[test]
+    fn usize_byte_subbword_collision_rate() {
+        let mut histogram = [0; 257];
+
+        for i in 0..USIZE_BITS - 8 {
+            for j in 0..USIZE_BITS - 16 {
+                let mut hash_subbytes: Vec<_> =
+                    (0..256).map(|b| (hash_usize(b << i) >> j) as u16).collect();
+                hash_subbytes.sort();
+                hash_subbytes.dedup();
+                histogram[hash_subbytes.len()] += 1;
+            }
+        }
+
+        for (len, &count) in histogram.iter().enumerate() {
+            if count > 0 {
+                println!("{}: {}", len, count);
+            }
+        }
+
+        for (len, &count) in histogram.iter().enumerate() {
+            // We allow up to one collision
+            assert!(len >= 255 || count == 0);
+        }
     }
 }
