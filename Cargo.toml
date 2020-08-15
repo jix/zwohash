@@ -11,4 +11,15 @@ default = ["std"]
 
 std = []
 
+[[bench]]
+name = "bench"
+harness = false
+
 [dependencies]
+
+[dev-dependencies]
+criterion = "0.3.3"
+rustc-hash = "1.1.0"
+rand_pcg = "0.2.1"
+rand = "0.7.3"
+ordered-float = "2.0.0"
