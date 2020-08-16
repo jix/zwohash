@@ -23,3 +23,7 @@ rustc-hash = "1.1.0"
 rand_pcg = "0.2.1"
 rand = "0.7.3"
 ordered-float = "2.0.0"
+
+
+[profile.bench]
+codegen-units = 1 # This reduces benchmarking variance a lot

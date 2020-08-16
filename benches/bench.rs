@@ -23,19 +23,19 @@ impl std::fmt::Display for HashFn {
     }
 }
 
-fn zwo_hash(data: &(impl Hash + ?Sized)) -> u64 {
+fn zwo_hash(data: impl Hash) -> u64 {
     let mut hasher = ZwoHasher::default();
     data.hash(&mut hasher);
     hasher.finish()
 }
 
-fn fx_hash(data: &(impl Hash + ?Sized)) -> u64 {
+fn fx_hash(data: impl Hash) -> u64 {
     let mut hasher = FxHasher::default();
     data.hash(&mut hasher);
     hasher.finish()
 }
 
-fn compare_hashes(group: &mut BenchmarkGroup<WallTime>, name: &str, data: &(impl Hash + ?Sized)) {
+fn compare_hashes(group: &mut BenchmarkGroup<WallTime>, name: &str, data: &impl Hash) {
     group.bench_with_input(BenchmarkId::new(name, HashFn::ZwoHash), &data, |b, data| {
         b.iter(|| zwo_hash(data))
     });
@@ -77,17 +77,13 @@ fn hashing_ints(c: &mut Criterion) {
 fn hashing_short_slices(c: &mut Criterion) {
     let mut group = c.benchmark_group("hashing short slices");
 
-    compare_hashes(&mut group, "len = 1", &b"h");
-    compare_hashes(&mut group, "len = 3", &b"hel");
-    compare_hashes(&mut group, "len = 4", &b"hell");
-    compare_hashes(&mut group, "len = 7", &b"hello w");
-    compare_hashes(&mut group, "len = 8", &b"hello wo");
-    compare_hashes(&mut group, "len = 12", &b"hello world!");
-    compare_hashes(
-        &mut group,
-        "len = 33",
-        &b"hello world! this is a bit longer",
-    );
+    compare_hashes(&mut group, "len = 1", &[42u8; 1]);
+    compare_hashes(&mut group, "len = 3", &[42u8; 3]);
+    compare_hashes(&mut group, "len = 4", &[42u8; 4]);
+    compare_hashes(&mut group, "len = 7", &[42u8; 7]);
+    compare_hashes(&mut group, "len = 8", &[42u8; 8]);
+    compare_hashes(&mut group, "len = 12", &[42u8; 12]);
+    compare_hashes(&mut group, "len = 31", &[42u8; 31]);
 }
 
 fn hashing_long_slices(c: &mut Criterion) {
@@ -103,7 +99,7 @@ fn hashing_long_slices(c: &mut Criterion) {
         compare_hashes(
             &mut group,
             &format!("len = {}", slice.len()),
-            slice.as_slice(),
+            &slice.as_slice(),
         );
     }
 }
@@ -113,30 +109,31 @@ fn building_int_sets(c: &mut Criterion) {
 
     let mut rng = rand_pcg::Pcg64::new(1, 1);
 
-    let mut bits_0_14: Vec<u64> = (0..1 << 14).collect();
-    bits_0_14.shuffle(&mut rng);
-    bits_0_14.truncate(1 << 13);
+    let mut bits_0_16: Vec<u64> = (0..1 << 16).collect();
+    bits_0_16.shuffle(&mut rng);
+    bits_0_16.truncate(1 << 12);
 
-    let mut bits_4_18: Vec<u64> = (0..1 << 14).map(|i| i << 4).collect();
-    bits_4_18.shuffle(&mut rng);
-    bits_4_18.truncate(1 << 13);
+    let mut bits_4_20: Vec<u64> = (0..1 << 16).map(|i| i << 4).collect();
+    bits_4_20.shuffle(&mut rng);
+    bits_4_20.truncate(1 << 12);
 
-    let mut bits_8_20: Vec<u64> = (0..1 << 14).map(|i| i << 8).collect();
-    bits_8_20.shuffle(&mut rng);
-    bits_8_20.truncate(1 << 13);
+    let mut bits_8_24: Vec<u64> = (0..1 << 16).map(|i| i << 8).collect();
+    bits_8_24.shuffle(&mut rng);
+    bits_8_24.truncate(1 << 12);
 
-    let mut bits_16_30: Vec<u64> = (0..1 << 14).map(|i| i << 16).collect();
-    bits_16_30.shuffle(&mut rng);
-    bits_16_30.truncate(1 << 13);
+    let mut bits_16_32: Vec<u64> = (0..1 << 16).map(|i| i << 16).collect();
+    bits_16_32.shuffle(&mut rng);
+    bits_16_32.truncate(1 << 12);
 
-    let mut bits_50_64: Vec<u64> = (0..1 << 14).map(|i| i << 50).collect();
-    bits_50_64.shuffle(&mut rng);
-    bits_50_64.truncate(1 << 13);
+    let mut bits_48_64: Vec<u64> = (0..1 << 16).map(|i| i << 48).collect();
+    bits_48_64.shuffle(&mut rng);
+    bits_48_64.truncate(1 << 12);
 
-    compare_hash_sets(&mut group, "u64 bits 0..14", &bits_0_14);
-    compare_hash_sets(&mut group, "u64 bits 4..18", &bits_4_18);
-    compare_hash_sets(&mut group, "u64 bits 8..20", &bits_8_20);
-    compare_hash_sets(&mut group, "u64 bits 50..64", &bits_16_30);
+    compare_hash_sets(&mut group, "u64 bits 0..16", &bits_0_16);
+    compare_hash_sets(&mut group, "u64 bits 4..20", &bits_4_20);
+    compare_hash_sets(&mut group, "u64 bits 8..24", &bits_8_24);
+    compare_hash_sets(&mut group, "u64 bits 16..32", &bits_16_32);
+    compare_hash_sets(&mut group, "u64 bits 48..64", &bits_48_64);
 }
 
 fn building_str_sets(c: &mut Criterion) {
