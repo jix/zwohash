@@ -1,0 +1,21 @@
+name: Build and Test
+
+on:
+  push:
+    branches:
+      - staging
+      - trying
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        no_std: ['', '--no-default-features']
+        target: ['', '--target=i686-unknown-linux-gnu']
+    steps:
+      - uses: actions/checkout@v1
+      - name: Build
+        run: cargo build --verbose ${{ matrix.no_std }} ${{ matrix.target }}
+      - name: Test
+        run: cargo test --verbose ${{ matrix.no_std }} ${{ matrix.target }}

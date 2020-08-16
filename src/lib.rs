@@ -255,7 +255,7 @@ impl Hasher for ZwoHasher {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "std"))]
 mod tests {
     use super::*;
     use std::{prelude::v1::*, println};
