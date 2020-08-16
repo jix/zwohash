@@ -1,7 +1,35 @@
-//! A fast non-randomized hash function.
+//! A fast, deterministic, non-cryptographic hash for use in hash tables.
 //!
-//! Not hardened against DOS attacks, thus be careful when using this with user-controlled keys.
-//! Optimized for small integer keys, but handles other non-adversarial use cases.
+//! ZwoHash implements a very fast hash algorithm optimized for the use in hash tables. It has low
+//! per-hash overhead, which is important when hashing small keys. It is non-cryptographic and
+//! deterministic and as such not suited for inserting untrusted user-provided input into hash
+//! tables, unless other denial of service countermeasures are taken. As such it covers the same use
+//! cases as [rustc's FxHash][rustc_hash].
+//!
+//! Compared to FxHash, ZwoHash provides essentially the same hashing speed while aiming for more
+//! uniform outputs. When used in a hash table ZwoHash is almost always able to match the
+//! performance of FxHash while outperforming it by quite a bit for some common inputs for which
+//! FxHash's output is particularly poor.
+//!
+//! The hash algorithm used by ZwoHash is very similar to that of FxHash, both process one `usize`
+//! at a time and perform the same number and kind of operations per `usize`. ZwoHash though,
+//! replaces the last iteration with a slightly more expensive operation that provides better output
+//! guarantees. The additional overhead (independent of the size of the hashed data) consists of
+//! performing a wide multiplication instead of a truncated multiplication and one additional
+//! subtraction. This is very little overhead, and almost doesn't register, even when benchmarking
+//! the hash function in isolation on integer keys.
+//!
+//! ZwoHash guarantees that any input bit can affect any bit of the output. FxHash does not
+//! guarantee this, and even beyond that, ZwoHash's output is more uniform. When used in a hash
+//! table, this often reduces the number of collisions and thus the number of required probes for
+//! each access. This can result in ZwoHash outperforming FxHash in that setting.
+//!
+//! Sometimes, given inputs for which FxHash is especially ill-suited, ZwoHash outperforms FxHash by
+//! a large margin. This includes integer keys that all are a multiple of a power of two, floating
+//! point values with a short base-2 representation, pointers returned from the allocator and other
+//! inputs that only differ in the higher bits of the last processed `usize`.
+//!
+//! [rustc_hash]: https://crates.io/crates/rustc-hash
 #![no_std]
 
 #[cfg(feature = "std")]
@@ -21,13 +49,10 @@ pub type HashMap<K, V> = collections::HashMap<K, V, BuildHasherDefault<ZwoHasher
 #[cfg(all(feature = "std"))]
 pub type HashSet<V> = collections::HashSet<V, BuildHasherDefault<ZwoHasher>>;
 
-/// A fast non-randomized hash function.
+/// A fast, deterministic, non-cryptographic hash for use in hash tables.
 ///
-/// Not hardened against DOS attacks, thus be careful when using this with user-controlled keys.
-/// Optimized for small integer keys, but handles other non-adversarial use cases.
-///
-/// Like rustc's FxHash the output fits in an usize. On 32-bit targets the higher bits of the result
-/// are zeros.
+/// Can be constructed using [`Default`] and then used using [`Hasher`]. See the [`crate`]'s
+/// documentation for more information.
 pub struct ZwoHasher {
     state: usize,
 }
