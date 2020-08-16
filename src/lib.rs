@@ -9,7 +9,7 @@ extern crate std;
 
 #[cfg(any(feature = "std"))]
 use core::hash::BuildHasherDefault;
-use core::{hash::Hasher, ptr::copy_nonoverlapping};
+use core::{convert::TryInto, hash::Hasher, ptr};
 
 #[cfg(any(feature = "std"))]
 use std::collections;
@@ -39,8 +39,6 @@ impl Default for ZwoHasher {
     }
 }
 
-const BYTES: usize = core::mem::size_of::<usize>();
-
 // Taken from Pierre L’Ecuyer. 1999. Tables of Linear Congruential Generators of Different Sizes and
 // Good Lattice Structure.
 //
@@ -68,6 +66,7 @@ type WideInt = u128;
 type WideInt = u64;
 
 const USIZE_BITS: u32 = 0usize.count_zeros();
+const USIZE_BYTES: usize = core::mem::size_of::<usize>();
 
 impl Hasher for ZwoHasher {
     #[inline]
@@ -103,58 +102,92 @@ impl Hasher for ZwoHasher {
 
     #[inline]
     fn write(&mut self, bytes: &[u8]) {
-        // This is a bit ugly, but that way it doesn't contain any redundant range checks and gets
-        // nicely optimized when inlined with a known `bytes.len()`.
-        unsafe {
-            // This is safe because any pointer add and any copy_nonoverlapping is guarded by a
-            // preceeding manual range check. The copy is guaranteed to be nonoverlaping as the
-            // source points to a slice passed to us and the destination is in our local stack
-            // frame.
+        // Working on a local copy might make the job of the optimizer compling this easier, but I
+        // haven't checked that, this is cargo culted from rustc's FxHash
+        let mut copy = ZwoHasher { state: self.state };
 
-            let mut copy = ZwoHasher { state: self.state };
+        // We write the length of the slice as first input. We do this since we're zero-padding the
+        // slice the a multiple of `USIZE_BYTES` bytes, and we don't want this to cause collisions
+        // when the input slice is already zero-padded.
+        //
+        // We do this as first step for two reasons:
+        // 1) If this slice has a known length at compile time and is the first thing that is
+        //    hashed, this step can be completely const evaluated.
+        // 2) If the slice is not known at compile time but is the first thing that is hashed, this
+        //    can be partially const evaluated.
+        copy.write_usize(bytes.len());
 
-            let mut full_chunk = [0u8; BYTES];
+        // If we have less than BYTES trailing bytes, we fill up partial_chunk with them and
+        // then process that. We pad with nonzero bytes, so we don't produce collisions for
+        // slices that have the same prefix and are zero padded.
 
-            let bytes_base = bytes.as_ptr();
-            let mut pos = 0;
+        let mut chunks = bytes.chunks_exact(USIZE_BYTES);
 
-            while pos + BYTES <= bytes.len() {
-                copy_nonoverlapping(bytes_base.add(pos), full_chunk.as_mut_ptr(), BYTES);
-
-                copy.write_usize(usize::from_ne_bytes(full_chunk));
-                pos += BYTES;
-            }
-
-            // If we have less than BYTES trailing bytes, we fill up partial_chunk with them and
-            // then process that. We pad with nonzero bytes, so we don't produce collisions for
-            // slices that have the same prefix and are zero padded.
-            let mut partial_chunk = M.to_ne_bytes();
-
-            match bytes.len() - pos {
-                #[cfg(target_pointer_width = "64")]
-                7 => copy_nonoverlapping(bytes_base.add(pos), partial_chunk.as_mut_ptr(), 7),
-                #[cfg(target_pointer_width = "64")]
-                6 => copy_nonoverlapping(bytes_base.add(pos), partial_chunk.as_mut_ptr(), 6),
-                #[cfg(target_pointer_width = "64")]
-                5 => copy_nonoverlapping(bytes_base.add(pos), partial_chunk.as_mut_ptr(), 5),
-                #[cfg(target_pointer_width = "64")]
-                4 => copy_nonoverlapping(bytes_base.add(pos), partial_chunk.as_mut_ptr(), 4),
-                // the cases below this line can happen for 32-bit targets
-                3 => copy_nonoverlapping(bytes_base.add(pos), partial_chunk.as_mut_ptr(), 3),
-                2 => copy_nonoverlapping(bytes_base.add(pos), partial_chunk.as_mut_ptr(), 2),
-                1 => copy_nonoverlapping(bytes_base.add(pos), partial_chunk.as_mut_ptr(), 1),
-                // we also perform one extra write_usize for a slice with multiple of 8 len
-                // (including the empty slice) as a slice terminator.
-                0 => (),
-                // we only get to this "loop" if pos + BYTES > bytes.len() and we cover all
-                // BYTES cases above
-                _ => core::hint::unreachable_unchecked(),
-            }
-
-            copy.write_usize(usize::from_ne_bytes(partial_chunk));
-
-            self.state = copy.state;
+        for full_chunk in &mut chunks {
+            // This try_into always succeeds and the size check is optimized away
+            let full_chunk: [u8; USIZE_BYTES] = full_chunk.try_into().unwrap();
+            copy.write_usize(usize::from_ne_bytes(full_chunk));
         }
+
+        let partial_chunk = chunks.remainder();
+
+        // For the trailing bytes, we fill up partial_chunk with them and then process that. We also
+        // process the partial_chunk if it is empty, this avoids a branch and also ensure that
+        // hashing an empty slice isn't a no-op, which is good for hashing structs containing
+        // multiple slices.
+
+        let mut padded_chunk = [0; USIZE_BYTES];
+
+        let mut byte_offset = 0; // For reading partial_chunk and writing padded_chunk.
+
+        // This code below compiles to a really small branch-free way of padding the parital_chunk.
+
+        // All powers of two less than or equal to USIZE_BYTES.
+        #[cfg(target_pointer_width = "64")]
+        let partial_steps = [4, 2, 1];
+        #[cfg(target_pointer_width = "32")]
+        let partial_steps = [2, 1];
+
+        for &step in &partial_steps {
+            unsafe {
+                // See inline comments below for safety
+
+                // `byte_offset` is always smaller than the sum (or bit-or, but that's the same for
+                // distinct powers of two) of all `step` values processed so far. Since all step
+                // values sum to `USIZE_BYTES-1`, `byte_offset + step < USIZE_BYTES` and hence
+                // `byte_offset..byte_offset + step` is in bounds for `padded_chunk`.
+                let dst_ptr = padded_chunk.as_mut_ptr().add(byte_offset);
+                // This copy may and will overlap, so don't use `ptr::copy_nonoverlapping` here
+                ptr::copy(
+                    if partial_chunk.len() & step != 0 {
+                        // We also only add steps two `byte_offset` whose corresponding bit is set
+                        // in `partial_chunk.len()`, this ensures that `byte_offset <=
+                        // partial_chunk.len()` always holds. At this point we haven't added `step`
+                        // to byte_offset yet, but the `if` tells us that we will below, so we know
+                        // `byte_offset + step <= partial_chunk.len()` and thus
+                        // `byte_offset..byte_offset + step` is in bounds for `partial_chunk`.
+                        partial_chunk.as_ptr().add(byte_offset)
+                    } else {
+                        // In this case the data would be out of bounds for partial_chunk, so we use
+                        // our dst pointer to turn this into a no-op. This trick allows this `if` to
+                        // be performed as a selection of two pointers, which often will be compiled
+                        // to code that doesn't branch.
+                        dst_ptr
+                    },
+                    dst_ptr,
+                    // See above for why `step` bytes pointed to by src and dst pointer are in
+                    // bounds.
+                    step,
+                );
+            }
+            // This ensures that a) `read_offset` is advanced by step if we copied step bytes,
+            // b) `read_offset < USIZE_BYTES` and c) `read_offset <= partial_chunk.len()`.
+            byte_offset |= step & partial_chunk.len();
+        }
+
+        copy.write_usize(usize::from_ne_bytes(padded_chunk));
+
+        self.state = copy.state;
     }
 
     #[inline]
