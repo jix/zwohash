@@ -3,8 +3,13 @@ name = "zwohash"
 version = "0.1.0"
 authors = ["Jannis Harder <me@jix.one>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "A fast, deterministic, non-cryptographic hash for use in hash tables"
+readme = "README.md"
+repository = "https://github.com/jix/zwohash/"
+license = "MIT OR Apache-2.0"
+keywords = ["hash"]
+categories = ["algorithms", "no-std"]
+include = ["LICENSE-MIT", "LICENSE-APACHE"]
 
 [features]
 default = ["std"]
