@@ -180,6 +180,26 @@ fn building_misc_sets(c: &mut Criterion) {
     compare_hash_sets(&mut group, "sparse [u8; 8]", &sparse_slices);
 }
 
+fn building_pointer_sets(c: &mut Criterion) {
+    let mut group = c.benchmark_group("building allocated pointer sets");
+
+    let sizes = [1, 2, 3, 4, 8, 16, 32, 64];
+
+    let box_lists: Vec<Vec<Box<[usize]>>> = sizes
+        .iter()
+        .map(|&len| (0..1 << 16).map(|_| vec![0; len].into()).collect())
+        .collect();
+
+    let pointer_lists: Vec<Vec<*const usize>> = box_lists
+        .iter()
+        .map(|boxes| boxes.iter().map(|bx| bx.as_ptr()).collect())
+        .collect();
+
+    for (pointers, size) in pointer_lists.iter().zip(&sizes) {
+        compare_hash_sets(&mut group, &format!("{} words", size), pointers.as_ref());
+    }
+}
+
 criterion_group!(
     benches,
     hashing_ints,
@@ -188,5 +208,6 @@ criterion_group!(
     building_int_sets,
     building_str_sets,
     building_misc_sets,
+    building_pointer_sets,
 );
 criterion_main!(benches);
