@@ -25,3 +25,8 @@ jobs:
         run: cargo build --verbose --target ${{ matrix.target }} ${{ matrix.features }}
       - name: Test
         run: cargo test --verbose --target ${{ matrix.target }} ${{ matrix.features }}
+  bors-gate:
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    steps:
+      - run: 'true'

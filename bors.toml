@@ -1,4 +1,2 @@
-status = [
-  "build-and-test (%)",
-]
+status = ["bors-gate"]
 delete_merged_branches = true
