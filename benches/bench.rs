@@ -140,6 +140,8 @@ fn building_str_sets(c: &mut Criterion) {
     let mut group = c.benchmark_group("building str sets");
     group.sample_size(50);
 
+    // To keep the published crate small, this file containing test data is not included. Clone the
+    // repository at https://github.com/jix/zwohash for a copy.
     let wordlist = include_str!("UKACD18.txt");
     let mut words: Vec<&str> = wordlist.split('\n').collect();
 

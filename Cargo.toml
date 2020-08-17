@@ -9,7 +9,7 @@ repository = "https://github.com/jix/zwohash/"
 license = "MIT OR Apache-2.0"
 keywords = ["hash"]
 categories = ["algorithms", "no-std"]
-include = ["LICENSE-MIT", "LICENSE-APACHE"]
+exclude = ["benches/*.txt"]
 
 [features]
 default = ["std"]
