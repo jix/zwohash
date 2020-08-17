@@ -1,5 +1,11 @@
 # ZwoHash
 
+[![github][github-badge]][github] [![crates.io][crate-badge]][crate] [![docs.rs][docs-badge]][docs]
+
+[github]: https://github.com/jix/zwohash
+[crate]: https://crates.io/crates/zwohash
+[docs]: https://docs.rs/zwohash/*/zwohash
+
 ZwoHash implements a very fast hash algorithm optimized for the use in
 hash tables. It has low per-hash overhead, which is important when hashing small
 keys. It is non-cryptographic and deterministic and as such not suited for
@@ -88,3 +94,8 @@ be dual licensed as above, without any additional terms or conditions.
 [criterion]: https://crates.io/crates/criterion
 [core_hash]: https://doc.rust-lang.org/core/hash/index.html
 [collections]: https://doc.rust-lang.org/std/collections/index.html
+
+
+[github-badge]: https://img.shields.io/badge/github-jix/zwohash-blueviolet?style=flat-square
+[crate-badge]: https://img.shields.io/crates/v/zwohash?style=flat-square
+[docs-badge]: https://img.shields.io/badge/docs.rs-zwohash-informational?style=flat-square

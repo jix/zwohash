@@ -307,7 +307,7 @@ mod tests {
             for j in 0..USIZE_BITS - 16 {
                 let mut hash_subbytes: Vec<_> =
                     (0..256).map(|b| (hash_usize(b << i) >> j) as u16).collect();
-                hash_subbytes.sort();
+                hash_subbytes.sort_unstable();
                 hash_subbytes.dedup();
                 histogram[hash_subbytes.len()] += 1;
             }

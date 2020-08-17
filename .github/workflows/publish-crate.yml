@@ -25,4 +25,4 @@ jobs:
       - name: Publish Crate
         run: |
           cargo login ${{ secrets.CARGO_TOKEN }}
-          cargo publish --dry-run
+          cargo publish
