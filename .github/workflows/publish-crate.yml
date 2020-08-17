@@ -1,0 +1,28 @@
+name: Publish Crate
+
+on:
+  workflow_dispatch
+
+jobs:
+  publish-crate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - name: Pre-Publish Checks
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          # check script
+          VER=$(perl -ne 'if(/^version = "(.*)"/){print $1;exit}' Cargo.toml)
+          if [[ $(git rev-parse HEAD) != $(git rev-parse "refs/tags/v$VER") ]]; then
+            echo "::error::Commit is not tagged as release"
+            exit 1
+          fi
+          if ! hub ci-status -f '%t: %S%n' | grep -q 'bors: success'; then
+            echo "::error::Commit was not checked by bors"
+            exit 1
+          fi
+      - name: Publish Crate
+        run: |
+          cargo login ${{ secrets.CARGO_TOKEN }}
+          cargo publish --dry-run
