@@ -16,8 +16,8 @@
 //! replaces the last iteration with a slightly more expensive operation that provides better output
 //! guarantees. The additional overhead (independent of the size of the hashed data) consists of
 //! performing a wide multiplication instead of a truncated multiplication and one additional
-//! subtraction. This is very little overhead, and almost doesn't register, even when benchmarking
-//! the hash function in isolation on integer keys.
+//! subtraction. This is very little overhead, and almost doesn't register when using ZwoHash in a
+//! hash table.
 //!
 //! ZwoHash guarantees that any input bit can affect any bit of the output. FxHash does not
 //! guarantee this, and even beyond that, ZwoHash's output is more uniform. When used in a hash
