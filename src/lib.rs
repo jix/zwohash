@@ -37,7 +37,7 @@ extern crate std;
 
 #[cfg(any(feature = "std"))]
 use core::hash::BuildHasherDefault;
-use core::{convert::TryInto, hash::Hasher, ptr};
+use core::{convert::TryInto, hash::Hasher};
 
 #[cfg(any(feature = "std"))]
 use std::collections;
@@ -131,86 +131,61 @@ impl Hasher for ZwoHasher {
         // haven't checked that, this is cargo culted from rustc's FxHash
         let mut copy = ZwoHasher { state: self.state };
 
-        // We write the length of the slice as first input. We do this since we're zero-padding the
-        // slice the a multiple of `USIZE_BYTES` bytes, and we don't want this to cause collisions
-        // when the input slice is already zero-padded.
-        //
-        // We do this as first step for two reasons:
-        // 1) If this slice has a known length at compile time and is the first thing that is
-        //    hashed, this step can be completely const evaluated.
-        // 2) If the slice is not known at compile time but is the first thing that is hashed, this
-        //    can be partially const evaluated.
-        copy.write_usize(bytes.len());
+        // The code below needs adjustment for other lengths of `usize`
+        assert!(USIZE_BYTES == 8 || USIZE_BYTES == 4);
 
-        // If we have less than BYTES trailing bytes, we fill up partial_chunk with them and
-        // then process that. We pad with nonzero bytes, so we don't produce collisions for
-        // slices that have the same prefix and are zero padded.
-
-        let mut chunks = bytes.chunks_exact(USIZE_BYTES);
-
-        for full_chunk in &mut chunks {
-            // This try_into always succeeds and the size check is optimized away
-            let full_chunk: [u8; USIZE_BYTES] = full_chunk.try_into().unwrap();
-            copy.write_usize(usize::from_ne_bytes(full_chunk));
-        }
-
-        let partial_chunk = chunks.remainder();
-
-        // For the trailing bytes, we fill up partial_chunk with them and then process that. We also
-        // process the partial_chunk if it is empty, this avoids a branch and also ensure that
-        // hashing an empty slice isn't a no-op, which is good for hashing structs containing
-        // multiple slices.
-
-        let mut padded_chunk = [0; USIZE_BYTES];
-
-        let mut byte_offset = 0; // For reading partial_chunk and writing padded_chunk.
-
-        // This code below compiles to a really small branch-free way of padding the parital_chunk.
-
-        // All powers of two less than or equal to USIZE_BYTES.
-        #[cfg(target_pointer_width = "64")]
-        let partial_steps = [4, 2, 1];
-        #[cfg(target_pointer_width = "32")]
-        let partial_steps = [2, 1];
-
-        for &step in &partial_steps {
-            unsafe {
-                // See inline comments below for safety
-
-                // `byte_offset` is always smaller than the sum (or bit-or, but that's the same for
-                // distinct powers of two) of all `step` values processed so far. Since all step
-                // values sum to `USIZE_BYTES-1`, `byte_offset + step < USIZE_BYTES` and hence
-                // `byte_offset..byte_offset + step` is in bounds for `padded_chunk`.
-                let dst_ptr = padded_chunk.as_mut_ptr().add(byte_offset);
-                // This copy may and will overlap, so don't use `ptr::copy_nonoverlapping` here
-                ptr::copy(
-                    if partial_chunk.len() & step != 0 {
-                        // We also only add steps two `byte_offset` whose corresponding bit is set
-                        // in `partial_chunk.len()`, this ensures that `byte_offset <=
-                        // partial_chunk.len()` always holds. At this point we haven't added `step`
-                        // to byte_offset yet, but the `if` tells us that we will below, so we know
-                        // `byte_offset + step <= partial_chunk.len()` and thus
-                        // `byte_offset..byte_offset + step` is in bounds for `partial_chunk`.
-                        partial_chunk.as_ptr().add(byte_offset)
-                    } else {
-                        // In this case the data would be out of bounds for partial_chunk, so we use
-                        // our dst pointer to turn this into a no-op. This trick allows this `if` to
-                        // be performed as a selection of two pointers, which often will be compiled
-                        // to code that doesn't branch.
-                        dst_ptr
-                    },
-                    dst_ptr,
-                    // See above for why `step` bytes pointed to by src and dst pointer are in
-                    // bounds.
-                    step,
-                );
+        #[allow(clippy::len_zero)]
+        if bytes.len() >= USIZE_BYTES {
+            // We iterate over all USIZE_BYTE sized chunks, but skips the last chunk if the data has
+            // a length that is an exact multiple of USIZE_BYTES, as we will process that chunk
+            // below
+            let mut bytes_left = bytes;
+            while bytes_left.len() > USIZE_BYTES {
+                let full_chunk: [u8; USIZE_BYTES] = bytes_left[..USIZE_BYTES].try_into().unwrap();
+                copy.write_usize(usize::from_ne_bytes(full_chunk));
+                bytes_left = &bytes_left[USIZE_BYTES..];
             }
-            // This ensures that a) `read_offset` is advanced by step if we copied step bytes,
-            // b) `read_offset < USIZE_BYTES` and c) `read_offset <= partial_chunk.len()`.
-            byte_offset |= step & partial_chunk.len();
-        }
 
-        copy.write_usize(usize::from_ne_bytes(padded_chunk));
+            // This check is completely redundand and will always be true, but without it the bounds
+            // check when indexing into `bytes` isn't optimzed away. Including this check makes
+            // rustc optimize away this check itself and the bounds check when indexing into
+            // `bytes`. (Last tested with rustc 1.46.0)
+            if bytes.len() >= USIZE_BYTES {
+                // This last chunk overlaps with the previously processed chunk if bytes has a
+                // length that is not a multiple of USIZE_BYTES, but this is completely fine for
+                // hashing
+                let last_chunk: [u8; USIZE_BYTES] =
+                    bytes[bytes.len() - USIZE_BYTES..].try_into().unwrap();
+                copy.write_usize(usize::from_ne_bytes(last_chunk));
+            } else {
+                core::unreachable!();
+            }
+        } else if USIZE_BYTES == 8 && bytes.len() >= 4 {
+            #[cfg(target_pointer_width = "64")]
+            {
+                // If we have less than USIZEBYTES = 8 bytes of data, but 4 or more, we can use two
+                // overlapping u32 values to cover all of the input data and those fit into a single
+                // usize.
+                let chunk_low: [u8; 4] = bytes[..4].try_into().unwrap();
+                let chunk_high: [u8; 4] = bytes[bytes.len() - 4..].try_into().unwrap();
+                let chunk_value = (u32::from_ne_bytes(chunk_low) as usize)
+                    | ((u32::from_ne_bytes(chunk_high) as usize) << 32);
+                copy.write_usize(chunk_value);
+            }
+            #[cfg(target_pointer_width = "32")]
+            core::unreachable!();
+        } else if bytes.len() >= 2 {
+            // If we have less than 4 bytes of data but 2 or more, we can use two overlapping u16
+            // values to cover all of the input data and those fit into a single usize.
+            let chunk_low: [u8; 2] = bytes[..2].try_into().unwrap();
+            let chunk_high: [u8; 2] = bytes[bytes.len() - 2..].try_into().unwrap();
+            let chunk_value = (u16::from_ne_bytes(chunk_low) as usize)
+                | ((u16::from_ne_bytes(chunk_high) as usize) << 16);
+            copy.write_usize(chunk_value);
+        } else if bytes.len() >= 1 {
+            // Otherwise we have at most a single byte left
+            copy.write_usize(bytes[0] as usize);
+        }
 
         self.state = copy.state;
     }

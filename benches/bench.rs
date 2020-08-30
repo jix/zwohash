@@ -1,5 +1,6 @@
 use criterion::{
-    criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, BenchmarkId, Criterion,
+    black_box, criterion_group, criterion_main, measurement::WallTime, BenchmarkGroup, BenchmarkId,
+    Criterion,
 };
 use ordered_float::OrderedFloat;
 use rand::{
@@ -44,6 +45,23 @@ fn compare_hashes(group: &mut BenchmarkGroup<WallTime>, name: &str, data: &impl 
     });
 }
 
+fn compare_hashes_multi(group: &mut BenchmarkGroup<WallTime>, name: &str, data: &[impl Hash]) {
+    group.bench_with_input(BenchmarkId::new(name, HashFn::ZwoHash), data, |b, data| {
+        b.iter(|| {
+            for i in data {
+                black_box(zwo_hash(i));
+            }
+        })
+    });
+    group.bench_with_input(BenchmarkId::new(name, HashFn::FxHash), data, |b, data| {
+        b.iter(|| {
+            for i in data {
+                black_box(fx_hash(i));
+            }
+        })
+    });
+}
+
 fn compare_hash_sets(group: &mut BenchmarkGroup<WallTime>, name: &str, data: &[impl Hash + Eq]) {
     group.bench_with_input(BenchmarkId::new(name, HashFn::ZwoHash), data, |b, data| {
         b.iter(|| {
@@ -63,6 +81,18 @@ fn compare_hash_sets(group: &mut BenchmarkGroup<WallTime>, name: &str, data: &[i
             set
         })
     });
+}
+
+// To keep the published crate small, this file containing test data is not included. Clone the
+// repository at https://github.com/jix/zwohash for a copy.
+static WORDLIST: &str = include_str!("UKACD18.txt");
+
+fn wordlist() -> Vec<&'static str> {
+    let mut words: Vec<&str> = WORDLIST.split('\n').collect();
+
+    let mut rng = rand_pcg::Pcg64::new(1, 1);
+    words.shuffle(&mut rng);
+    words
 }
 
 fn hashing_ints(c: &mut Criterion) {
@@ -104,6 +134,16 @@ fn hashing_long_slices(c: &mut Criterion) {
     }
 }
 
+fn hashing_strs(c: &mut Criterion) {
+    let mut group = c.benchmark_group("hashing strs");
+
+    let words = wordlist();
+
+    for &count in &[2000, 20000, 200000] {
+        compare_hashes_multi(&mut group, &format!("{} words", count), &words[..count]);
+    }
+}
+
 fn building_int_sets(c: &mut Criterion) {
     let mut group = c.benchmark_group("building int sets");
 
@@ -140,13 +180,7 @@ fn building_str_sets(c: &mut Criterion) {
     let mut group = c.benchmark_group("building str sets");
     group.sample_size(50);
 
-    // To keep the published crate small, this file containing test data is not included. Clone the
-    // repository at https://github.com/jix/zwohash for a copy.
-    let wordlist = include_str!("UKACD18.txt");
-    let mut words: Vec<&str> = wordlist.split('\n').collect();
-
-    let mut rng = rand_pcg::Pcg64::new(1, 1);
-    words.shuffle(&mut rng);
+    let words = wordlist();
 
     for &count in &[2000, 20000, 200000] {
         compare_hash_sets(&mut group, &format!("{} words", count), &words[..count]);
@@ -207,6 +241,7 @@ criterion_group!(
     hashing_ints,
     hashing_short_slices,
     hashing_long_slices,
+    hashing_strs,
     building_int_sets,
     building_str_sets,
     building_misc_sets,
