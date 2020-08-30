@@ -28,7 +28,16 @@ def get_rev(rev):
     return rev
 
 
-if get_rev('HEAD') != get_rev(f'refs/tags/v{version}'):
+def fetch_rev(rev):
+    try:
+        cmd = ['git', 'fetch', 'origin', f'{rev}:{rev}']
+        rev = check_output(cmd, text=True).strip()
+    except CalledProcessError:
+        fail(f"Could not fetch revision {rev}")
+    return get_rev(rev)
+
+
+if get_rev('HEAD') != fetch_rev(f'refs/tags/v{version}'):
     fail(f"Tag v{version} does not point at current HEAD")
 
 try:
