@@ -9,12 +9,15 @@ jobs:
   publish-crate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: '^3.8'
       - name: Pre-Publish Checks
         id: pre_publish_checks
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 .github/workflows/publish-crate-checks.py
+        run: python .github/workflows/publish-crate-checks.py
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1

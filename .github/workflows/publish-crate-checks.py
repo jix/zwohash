@@ -18,14 +18,17 @@ version = version[1]
 
 print(f"::set-output name=version::{version}")
 
-rev_a = check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
 
-try:
-    rev_b = check_output(['git', 'rev-parse', f'v{version}'], text=True).strip()
-except CalledProcessError:
-    fail(f"No tag v{version} found")
+def get_rev(rev):
+    try:
+        cmd = ['git', 'rev-parse', rev]
+        rev = check_output(cmd, text=True).strip()
+    except CalledProcessError:
+        fail(f"No git revision {rev} found")
+    return rev
 
-if rev_a != rev_b:
+
+if get_rev('HEAD') != get_rev(f'refs/tags/v{version}'):
     fail(f"Tag v{version} does not point at current HEAD")
 
 try:
