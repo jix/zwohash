@@ -14,7 +14,7 @@ jobs:
         id: pre_publish_checks
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3.8 .github/workflows/publish-crate-checks.py
+        run: python3 .github/workflows/publish-crate-checks.py
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
