@@ -1,7 +1,9 @@
 name: Publish Crate
 
-on:
-  workflow_dispatch
+on: workflow_dispatch
+
+env:
+  project_display_name: ZwoHash
 
 jobs:
   publish-crate:
@@ -9,19 +11,21 @@ jobs:
     steps:
       - uses: actions/checkout@v1
       - name: Pre-Publish Checks
+        id: pre_publish_checks
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: |
-          # check script
-          VER=$(perl -ne 'if(/^version = "(.*)"/){print $1;exit}' Cargo.toml)
-          if [[ $(git rev-parse HEAD) != $(git rev-parse "refs/tags/v$VER") ]]; then
-            echo "::error::Commit is not tagged as release"
-            exit 1
-          fi
-          if ! hub ci-status -f '%t: %S%n' | grep -q 'bors: success'; then
-            echo "::error::Commit was not checked by bors"
-            exit 1
-          fi
+        run: python3.8 .github/workflows/publish-crate-checks.py
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ env.project_display_name }} ${{ steps.pre_publish_checks.outputs.version }}
+          body: ${{ fromJson(steps.pre_publish_checks.outputs.changelog) }}
+          draft: false
+          prerelease: false
       - name: Publish Crate
         run: |
           cargo login ${{ secrets.CARGO_TOKEN }}
