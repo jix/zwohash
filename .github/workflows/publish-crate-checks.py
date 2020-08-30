@@ -22,16 +22,16 @@ print(f"::set-output name=version::{version}")
 def get_rev(rev):
     try:
         cmd = ['git', 'rev-parse', rev]
-        rev = check_output(cmd, text=True).strip()
+        rev_hash = check_output(cmd, text=True).strip()
     except CalledProcessError:
         fail(f"No git revision {rev} found")
-    return rev
+    return rev_hash
 
 
 def fetch_rev(rev):
     try:
         cmd = ['git', 'fetch', 'origin', f'{rev}:{rev}']
-        rev = check_output(cmd, text=True).strip()
+        check_output(cmd, text=True)
     except CalledProcessError:
         fail(f"Could not fetch revision {rev}")
     return get_rev(rev)
