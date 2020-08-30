@@ -17,7 +17,7 @@ jobs:
         features: ["", "--no-default-features"]
         target: ["x86_64-unknown-linux-gnu", "i686-unknown-linux-gnu"]
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - if: ${{ matrix.target == 'i686-unknown-linux-gnu' }}
         name: Install 32-bit system toolchain
         run: sudo apt-get install gcc-multilib -y
@@ -40,7 +40,7 @@ jobs:
     name: Check Source Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly
@@ -58,7 +58,7 @@ jobs:
       RUSTFLAGS: "-D warnings"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
@@ -73,7 +73,7 @@ jobs:
     name: Cargo Audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
       - uses: actions-rs/audit-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
