@@ -54,6 +54,9 @@ def fetch_rev(rev):
     return get_rev(rev)
 
 
+if get_rev('HEAD') != fetch_rev(f'refs/heads/main'):
+    fail(f"Branch main does not point at current HEAD")
+
 if get_rev('HEAD') != fetch_rev(f'refs/tags/v{version}'):
     fail(f"Tag v{version} does not point at current HEAD")
 
