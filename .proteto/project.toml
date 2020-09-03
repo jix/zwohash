@@ -1,0 +1,13 @@
+# Configuration for the project template tool I use to keep my projects in sync
+
+[template]
+name = 'rust'
+version = 1
+
+[config]
+name = 'ZwoHash'
+github.owner = 'jix'
+
+[config.build_and_test]
+features = ['', '--no-default-features']
+bits32 = true

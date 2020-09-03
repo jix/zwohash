@@ -1,11 +1,5 @@
-# ZwoHash
-
-[![github][github-badge]][github] [![crates.io][crate-badge]][crate] [![docs.rs][docs-badge]][docs]
-
-[github]: https://github.com/jix/zwohash
-[crate]: https://crates.io/crates/zwohash
-[docs]: https://docs.rs/zwohash/*/zwohash
-
+{% extends "README_base.md" %}
+{% block body %}
 ZwoHash implements a very fast hash algorithm optimized for the use in
 hash tables. It has low per-hash overhead, which is important when hashing small
 keys. It is non-cryptographic and deterministic and as such not suited for
@@ -68,32 +62,16 @@ improves performance. Feel free to file issues for this.
 
 ZwoHash can be used from no_std code by disabling the default `std` feature of
 this crate.
-
-## License
-
-The ZwoHash source code is licensed under either of
-
-  * Apache License, Version 2.0 (see [LICENSE-APACHE](LICENSE-APACHE))
-  * MIT license (see [LICENSE-MIT](LICENSE-MIT))
-
-at your option.
-
+{% endblock %}
+{% block license_extra %}
 This repository also contains a word-list, which is only used during
 benchmarking. It is contained in the file
 [benches/UKACD18.txt](benches/UKACD18.txt), see
 [benches/UKACD18-LICENSE.txt](benches/UKACD18-LICENSE.txt) for its license.
-
-### Contribution
-
-Unless You explicitly state otherwise, any Contribution intentionally submitted
-for inclusion in the Work by You, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
-
+{% endblock %}
+{% block links %}
 [rustc_hash]: https://crates.io/crates/rustc-hash
 [criterion]: https://crates.io/crates/criterion
 [core_hash]: https://doc.rust-lang.org/core/hash/index.html
 [collections]: https://doc.rust-lang.org/std/collections/index.html
-
-[github-badge]: https://img.shields.io/badge/github-jix/zwohash-blueviolet?style=flat-square
-[crate-badge]: https://img.shields.io/crates/v/zwohash?style=flat-square
-[docs-badge]: https://img.shields.io/badge/docs.rs-zwohash-informational?style=flat-square
+{% endblock %}
