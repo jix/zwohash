@@ -38,4 +38,4 @@ jobs:
           cargo publish
       - name: Push to release Branch
         run: |
-          git push origin HEAD:release
+          git push origin +HEAD:release
