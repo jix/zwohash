@@ -5,7 +5,6 @@
 [![crates.io][crate-badge]](https://crates.io/crates/zwohash)
 [![docs.rs][docs-badge]](https://docs.rs/zwohash/*/zwohash)
 
-
 ZwoHash implements a very fast hash algorithm optimized for the use in
 hash tables. It has low per-hash overhead, which is important when hashing small
 keys. It is non-cryptographic and deterministic and as such not suited for
@@ -71,23 +70,14 @@ this crate.
 
 ## License
 
-The ZwoHash source code is licensed under either of
-
-  * Apache License, Version 2.0 (see [LICENSE-APACHE](LICENSE-APACHE))
-  * MIT license (see [LICENSE-MIT](LICENSE-MIT))
-
-at your option.
-
-This repository also contains a word-list, which is only used during
-benchmarking. It is contained in the file
-[benches/UKACD18.txt](benches/UKACD18.txt), see
-[benches/UKACD18-LICENSE.txt](benches/UKACD18-LICENSE.txt) for its license.
+This software is available under the Zero-Clause BSD license, see
+[COPYRIGHT](COPYRIGHT) for full licensing information and exceptions to this.
 
 ### Contribution
 
-Unless You explicitly state otherwise, any Contribution intentionally submitted
-for inclusion in the Work by You, as defined in the Apache-2.0 license, shall
-be dual licensed as above, without any additional terms or conditions.
+Unless you explicitly state otherwise, any contribution intentionally submitted
+for inclusion in this software by you shall be licensed as defined in
+[COPYRIGHT](COPYRIGHT).
 
 [rustc_hash]: https://crates.io/crates/rustc-hash
 [criterion]: https://crates.io/crates/criterion

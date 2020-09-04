@@ -1,0 +1,7 @@
+%% extends "COPYRIGHT_base"
+%% block exceptions
+%%#
+The word-list file `benches/UKACD18.txt` is licensed as specified in
+`benches/UKACD18-LICENSE.txt`. The word-list is only used during benchmarking
+and not included in the library part of the Software.
+%% endblock
