@@ -2,7 +2,7 @@
 
 [template]
 name = 'rust'
-version = 1
+version = 2
 
 [config]
 name = 'ZwoHash'

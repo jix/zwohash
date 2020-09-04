@@ -1,10 +1,10 @@
 # ZwoHash
 
-[![github][github-badge]][github] [![crates.io][crate-badge]][crate] [![docs.rs][docs-badge]][docs]
+[![ci][ci-badge]](https://github.com/jix/zwohash/actions?query=workflow%3A%22Check+Last+Release%22)
+[![github][github-badge]](https://github.com/jix/zwohash)
+[![crates.io][crate-badge]](https://crates.io/crates/zwohash)
+[![docs.rs][docs-badge]](https://docs.rs/zwohash/*/zwohash)
 
-[github]: https://github.com/jix/zwohash
-[crate]: https://crates.io/crates/zwohash
-[docs]: https://docs.rs/zwohash/*/zwohash
 
 ZwoHash implements a very fast hash algorithm optimized for the use in
 hash tables. It has low per-hash overhead, which is important when hashing small
@@ -94,6 +94,7 @@ be dual licensed as above, without any additional terms or conditions.
 [core_hash]: https://doc.rust-lang.org/core/hash/index.html
 [collections]: https://doc.rust-lang.org/std/collections/index.html
 
+[ci-badge]: https://img.shields.io/github/workflow/status/jix/zwohash/Check%20Last%20Release?style=flat-square
 [github-badge]: https://img.shields.io/badge/github-jix/zwohash-blueviolet?style=flat-square
 [crate-badge]: https://img.shields.io/crates/v/zwohash?style=flat-square
 [docs-badge]: https://img.shields.io/badge/docs.rs-zwohash-informational?style=flat-square
