@@ -1,6 +1,6 @@
 [package]
 name = "zwohash"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Jannis Harder <me@jix.one>"]
 edition = "2018"
 description = "A fast, deterministic, non-cryptographic hash for use in hash tables"
